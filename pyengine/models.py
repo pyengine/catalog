@@ -41,4 +41,24 @@ class product(models.Model):
     vendor = models.CharField(max_length=100, null=True)
     created = models.DateTimeField(auto_now_add=True, editable=False)
 
+class product_detail(models.Model):
+    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey('product', to_field='uuid', null=False)
+    email = models.CharField(max_length=255, default='')
+    support_link = models.CharField(max_length=100)
+    support_description = models.CharField(max_length=1024, null=True, blank=True, default=None)
 
+class package(models.Model):
+    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey('product', to_field='uuid', null=False)
+    pkg_type = models.CharField(max_length=128, null=True)
+    template = models.CharField(max_length=256, null=True)
+    version = models.CharField(max_length=30, null=False)
+    description = models.CharField(max_length=1024, null=True, blank=True, default=None)
+    created = models.DateTimeField(auto_now_add=True, editable=False)
+
+class tag(models.Model):
+    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey('product', to_field='uuid', null=False)
+    key = models.CharField(max_length=128, null=True)
+    value = models.CharField(max_length=256, null=True)
