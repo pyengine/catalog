@@ -1,132 +1,136 @@
-# PyEngine - Installation
+# Pyengine
 
-* [CentOS](https://github.com/pyengine/pyengine/blob/master/docs/INSTALL.md#centos)
-* Ubuntu
-* Amazon Linux
+## Prerequisite
 
-## CentOS
-### 1. Install Yum Packages
+Keyword | Value     | Description
+----    | ----      | ----
+PROJECT | catalog   | Project name
+ 
+# Installation
+
+## Install libraries
+
+Pyengine is based on apache and python django framework
+
 ~~~bash
-yum install python python-pip mariadb MySQL-python httpd mod_wsgi git
+apt-get install -y python-dev python-pip mariadb-server apache2 libapache2-mod-wsgi python-mysqldb libyaml-cpp-dev libyaml-dev
 ~~~
 
-### 2. Install PIP Packages
+## Install PIP libraries for django
+
 ~~~bash
-pip install django django-log-request-id dicttoxml xmltodict routes rsa pytz
+pip install django
+pip install django-log-request-id
+pip install dicttoxml
+pip install xmltodict
+pip install routes
+pip install rsa
+pip install pytz
+pip install pyyaml
 ~~~
 
-### 3. MariaDB Installation (Optional)
-* Install MariaDB Package
+## Download source
+
+Download pyengine source
+
 ~~~bash
-yum install mariadb-server
+cd /opt/
+git clone https://github.com/pyengine/catalog.git catalog
 ~~~
 
-* Update Settings (/etc/my.cnf)
+## Update python module path environment
+
+edit /usr/local/lib/python2.7/site-packages/pyengine.pth
+
 ~~~text
-[mysql]
-...
-default-character-set = utf8
-
-[mysqld]
-...
-init_connect="SET collation_connection=utf8_general_ci"
-init_connect="SET NAMES utf8"
-character-set-server=utf8
-collation-server=utf8_general_ci
-skip-character-set-client-handshake
-
-[client]
-...
-default-character-set = utf8
-
-[mysqldump]
-...
-default-character-set = utf8
+/opt/catalog
 ~~~
 
-* Restart MariaDB
-~~~bash
-systemctl start mariadb.service
-systemctl enable mariadb.service
-~~~
+# Update Configuration
 
-* Set Root Password & Login
-~~~bash
-mysqladmin -u root password '<password>'
-mysql -u root -p
-~~~
+## Update Apache configuration
 
-* Create Database & User
-~~~mysql
-create database pyengine;
-grant all privileges on pyengine.* to pyengine@'%' identified by '<password>' with grant option;
-grant all privileges on pyengine.* to pyengine@'localhost' identified by '<password>' with grant option;
-~~~
+edit /etc/apache2/conf-available/catalog.conf
 
-### 4. Download PyEngine Source
-~~~bash
-git clone https://github.com/pyengine/pyengine.git identity
-~~~
-
-## 5. Change Log Permissions
-~~~bash
-mkdir -p /var/log/pyengine
-chown -R apache:apache /var/log/pyengine
-~~~
-
-## 6. Update Pyengine Settings
 ~~~text
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'pyengine',
-        'USER': 'pyengine',
-        'PASSWORD': '<password>',
-        'HOST': 'localhost',
-    }
-}
+<VirtualHost *:80>
+    Alias /static    /opt/catalog/static
+    <Directory /opt/catalog/static>
+        Require all granted
+    </Directory>
 
-LOGGING = {
-            ...
-            'filename' : '/var/log/pyengine/pyengine.log',
-            ...
-}
+    WSGIScriptAlias / /opt/catalog/pyengine/wsgi.py
+    WSGIPassAuthorization On
+
+    <Directory /opt/catalog/pyengine>
+    <Files wsgi.py>
+        Require all granted
+    </Files>
+    </Directory>
+
+    AddDefaultCharset UTF-8
+</VirtualHost>
 ~~~
 
-## 7. DB Sync
+Enable the pyengine
+
 ~~~bash
-cd /opt/pyengine
+a2enconf catalog
+~~~
+
+# Create Database
+
+Create pyengine database
+
+~~~bash
+mysql -u root -e "create database pyengine character set utf8 collate utf8_general_ci"
+~~~
+
+## Update django DB
+
+~~~bash
+mkdir /var/log/pyengine
+chown -R www-data:www-data /var/log/pyengine
+
+cd /opt/catalog
 python manage.py makemigrations
 python manage.py migrate
 ~~~
 
-## 8. Create Root User
+# Restart Apache
+
 ~~~bash
-cd /opt/pyengine/bin
-python create_root.py <root_password>
+service apache2 restart
 ~~~
 
-## 9. Set Apache Configuration (/etc/httpd/conf.d/pyengine.conf)
-~~~text
-<VirtualHost *:80>
-        Alias /pyengine/static/ /opt/pyengine/static/
-        <Directory /opt/pyengine/static>
-            Require all granted
-        </Directory>
+# Create Testing value
 
-        WSGIScriptAlias /pyengine /opt/pyengine/pyengine/wsgi.py
-        <Directory /opt/pengine/pyengine>
-        <Files wsgi.py>
-            Require all granted
-        </Files>
-        </Directory>
+~~~python
 
-        AddDefaultCharset UTF-8
-</VirtualHost>
-~~~
+import requests
+import json
+headers = {'content-type':'application/json'}
 
-## 10. Start Apache Daemon
-~~~bash
-systemctl restart httpd.service
-systemctl enable httpd.service
+r = requests.post('http://127.0.0.1/catalog/v1/portfolios',headers=headers, data=json.dumps({'name':'Automation','owner':'Choonho Son'}))
+
+result = json.loads(r.text)
+print "Portpolio: http://${IP}/catalog/v1/portfolios/%s" % result['uuid']
+
+r_data = {'portfolio_uuid': result['uuid'],
+        'name':'Jeju',
+        'short_description':'IT automation tool',
+        'description':'Document based IT automation tool',
+        'provided_by':'PyEngine',
+        'vendor':'PyEngine'
+        }
+
+r = requests.post('http://127.0.0.1/catalog/v1/products',headers=headers,data=json.dumps(r_data))
+result = json.loads(r.text)
+print "Product: http://${IP}/catalog/v1/products/%s" % result['uuid']
+
+r_data = {'email':'admin@example.com', 
+            'support_link':'https://github.com/pyengine/catalog.git',
+            'support_description': 'This is a service catalog system'
+            }
+r = requests.post('http://127.0.0.1/catalog/v1/%s/detail' % result['uuid'], headers=headers, data=json.dumps(r_data))
 ~~~
